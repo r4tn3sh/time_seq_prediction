@@ -10,12 +10,14 @@ import matplotlib.pyplot as plt
 class Sequence(nn.Module):
     def __init__(self):
         super(Sequence, self).__init__()
-        self.lstm1 = nn.LSTMCell(1, 51)
-        self.lstm2 = nn.LSTMCell(51, 51)
-        self.linear = nn.Linear(51, 1)
+        # Using long short-term memory RNN
+        self.lstm1 = nn.LSTMCell(1, 51) #input size = 1, output size = 51
+        self.lstm2 = nn.LSTMCell(51, 51) #input size = 51, output size = 51
+        self.linear = nn.Linear(51, 1) #input size = 51, output size = 1
 
     def forward(self, input, future = 0):
         outputs = []
+        # h = hidden state; c = cell state
         h_t = torch.zeros(input.size(0), 51, dtype=torch.double)
         c_t = torch.zeros(input.size(0), 51, dtype=torch.double)
         h_t2 = torch.zeros(input.size(0), 51, dtype=torch.double)
@@ -47,22 +49,32 @@ if __name__ == '__main__':
     test_target = torch.from_numpy(data[:3, 1:])
     # build the model
     seq = Sequence()
+    # change datatype to double
     seq.double()
+    # mean square error (L2 norm) between input and target
     criterion = nn.MSELoss()
-    # use LBFGS as optimizer since we can load the whole data to train
+    # use LBFGS as optimizer since we can load the whole data to train.
+    # Limited-memory BFGS (Broyden–Fletcher–Goldfarb–Shanno algorithm)
     optimizer = optim.LBFGS(seq.parameters(), lr=0.8)
     #begin to train
     for i in range(15):
         print('STEP: ', i)
+        # Some optimization algorithms such as Conjugate Gradient and
+        # LBFGS need to reevaluate the function multiple times, so you
+        # have to pass in a closure that allows them to recompute your
+        # model. The closure should clear the gradients, compute the
+        # loss, and return it
         def closure():
+            # clear the gradient
             optimizer.zero_grad()
             out = seq(input)
             loss = criterion(out, target)
             print('loss:', loss.item())
             loss.backward()
             return loss
+        # perform a single optimization step
         optimizer.step(closure)
-        # begin to predict, no need to track gradient here
+        # begin to predict, disable the gradient calculation using no_grad()
         with torch.no_grad():
             future = 1000
             pred = seq(test_input, future=future)
